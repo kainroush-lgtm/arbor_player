@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <title>arbor_player</title>
+    <style>
+        /* Dynamic Sky Gradients based on Time of Day */
+        .sky-morning {
+            background: linear-gradient(to bottom, #ff7e5f, #feb47b, #74ebd5);
+        }
+        .sky-afternoon {
+            background: linear-gradient(to bottom, #4a90e2, #50e3c2, #b8e986);
+        }
+        .sky-evening {
+            background: linear-gradient(to bottom, #111936, #4f3b78, #927fbf, #f4acb7);
+        }
+        .sky-night {
+            background: linear-gradient(to bottom, #050510, #0a1128, #101f42);
+        }
+
+        :root {
+            --forest-green: #1e3f20;
+            --leaf-green: #2d6a4f;
+            --light-leaf: #52b788;
+            --wood-brown: #4a3728;
+            --surface-color: rgba(20, 35, 25, 0.9);
+            --text-color: #f1f7f3;
+            --text-secondary: #9cd1b4;
+            --danger-color: #bc3939;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            box-sizing: border-box;
+            position: relative;
+            transition: background 1s ease;
+            overflow-x: hidden;
+        }
+
+        .stars {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 70%;
+            background-image: 
+                radial-gradient(white, rgba(255,255,255,.2) 2px, transparent 40px),
+                radial-gradient(white, rgba(255,255,255,.15) 1px, transparent 30px),
+                radial-gradient(white, rgba(255,255,255,.1) 2px, transparent 40px);
+            background-size: 550px 550px, 350px 350px, 250px 250px;
+            background-position: 0 0, 40px 60px, 130px 270px;
+            opacity: 0;
+            transition: opacity 1s ease;
+            pointer-events: none;
+            z-index: 0;
+        }
+        .sky-night .stars, .sky-evening .stars {
+            opacity: 0.6;
+        }
+
+        .grass-floor {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 80px;
+            background: linear-gradient(to top, #132a13, #1e3f20);
+            box-shadow: 0 -5px 20px rgba(0,0,0,0.5);
+            z-index: 1;
+        }
+        .grass-blades {
+            position: absolute;
+            top: -15px;
+            left: 0;
+            width: 100%;
+            height: 20px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://w3.org' viewBox='0 0 100 20' preserveAspectRatio='none'%3E%3Cpath d='M0,20 L5,5 L10,20 L15,3 L20,20 L25,7 L30,20 L35,4 L40,20 L45,6 L50,20 L55,3 L60,20 L65,8 L70,20 L75,5 L80,20 L85,3 L90,20 L95,6 L100,20 Z' fill='%231e3f20'/%3E%3C/svg%3E");
+            background-size: 120px 20px;
+            background-repeat: repeat-x;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 24px;
+            z-index: 2;
+            margin-bottom: 80px;
+        }
+
+        @media (min-width: 900px) {
+            .container {
+                grid-template-columns: 2fr 1fr;
+            }
+        }
+
+        header {
+            width: 100%;
+            max-width: 1200px;
+            text-align: left;
+            z-index: 2;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        header h1 {
+            margin: 0;
+            font-size: 2.2rem;
+            color: #ffffff;
+            text-shadow: 0 3px 6px rgba(0,0,0,0.5);
+            font-family: 'Courier New', Courier, monospace;
+            font-weight: bold;
+        }
+
+        .arbor-icon {
+            font-size: 2rem;
+        }
+        .card {
+            background-color: var(--surface-color);
+            border: 2px solid var(--leaf-green);
+            backdrop-filter: blur(8px);
+            -webkit-backdrop-filter: blur(8px);
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .card h2 {
+            margin-top: 0;
+            color: var(--light-leaf);
+            border-bottom: 1px solid var(--leaf-green);
+            padding-bottom: 8px;
+        }
+
+        .controls {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            min-width: 200px;
+            padding: 12px;
+            border: 2px solid var(--leaf-green);
+            border-radius: 8px;
+            background-color: rgba(10, 20, 15, 0.8);
+            color: var(--text-color);
+            font-size: 16px;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--light-leaf);
+            box-shadow: 0 0 8px var(--light-leaf);
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, var(--leaf-green), var(--forest-green));
+            color: white;
+            font-size: 16px;
+            cursor: pointer;
+            font-weight: bold;
+            border: 1px solid var(--light-leaf);
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(82, 183, 136, 0.4);
+        }
+
+        button.btn-danger {
+            background: linear-gradient(135deg, var(--danger-color), #801818);
+            border: 1px solid #ff6b6b;
+        }
+        button.btn-danger:hover {
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.4);
+        }
+
+        .video-wrapper {
+            position: relative;
+            padding-bottom: 56.25%;
+            height: 0;
+            overflow: hidden;
+            border-radius: 12px;
+            background-color: #000;
+            border: 3px solid var(--wood-brown);
+            margin-bottom: 20px;
+        }
+
+        .video-wrapper iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .tabs {
+            display: flex;
+            border-bottom: 2px solid var(--leaf-green);
+            margin-bottom: 15px;
+        }
+
+        .tab {
+            padding: 10px 20px;
+            font-weight: bold;
+            color: var(--light-leaf);
+            border-bottom: 3px solid var(--light-leaf);
+            margin-bottom: -2px;
+        }
+
+        .list-container {
+            max-height: 480px;
+            overflow-y: auto;
+            padding-right: 4px;
+        }
+
+        .video-card-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background 0.2s, border-color 0.2s;
+            margin-bottom: 12px;
+            background-color: rgba(255,255,255,0.03);
+            border: 1px solid var(--leaf-green);
+            box-sizing: border-box;
+            overflow: hidden;
+        }
+
+        .video-card-item:hover {
+            background-color: rgba(82, 183, 136, 0.15);
+            border-color: var(--light-leaf);
+        }
+
+        .video-card-item img {
+            width: 100px;
+            height: 56px;
+            flex-shrink: 0;
+            object-fit: cover;
+            border-radius: 6px;
+            border: 1px solid var(--wood-brown);
+        }
+
+        .video-card-info {
+            flex: 1;
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .video-card-title {
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 1.3;
+            color: var(--text-color);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .video-card-channel {
+            font-size: 12px;
+            color: var(--text-secondary);
+        }
+
+        #timeDisplay {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-left: auto;
+            background: rgba(0,0,0,0.3);
+            padding: 6px 12px;
+            border-radius: 20px;
+            border: 1px solid var(--leaf-green);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--leaf-green);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="stars"></div>
+
+    <header>
+        <span class="arbor-icon">🌳</span>
+        <h1>arbor_player</h1>
+        <div id="timeDisplay">System Time</div>
+    </header>
+
+    <div class="container">
+        <!-- Main Console / Player -->
+        <div class="player-section card">
+            <h2>Arbor Console</h2>
+            <div class="controls">
+                <input type="text" id="idInput" placeholder="Drop Video ID or YouTube Link here...">
+                <button onclick="loadVideoFromInput()">Grow Stream</button>
+            </div>
+            
+            <div class="video-wrapper">
+                <iframe id="ytPlayer" src="" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+            </div>
+            <h3 id="currentTitle" style="margin:0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">No canopy stream active</h3>
+        </div>
+
+        <div class="sidebar-section card">
+            <div class="tabs">
+                <div class="tab" id="historyTab">Rings (0/50)</div>
+            </div>
+
+            <div id="historyPanel">
+                <div class="controls" style="margin-bottom: 15px;">
+                    <button class="btn-danger" style="width: 100%;" onclick="clearHistory()">🍂 Clear All Rings</button>
+                </div>
+                <div class="list-container" id="historyResults"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="grass-floor">
+        <div class="grass-blades"></div>
+    </div>
+    <script>
+        let history = JSON.parse(localStorage.getItem('arborPlayerHistory')) || [];
+
+        window.addEventListener('beforeunload', function (e) {
+            e.preventDefault();
+            e.returnValue = 'Leave site? Changes you made may not be saved.';
+        });
+
+        function updateEnvironment() {
+            const now = new Date();
+            const hour = now.getHours();
+            const body = document.body;
+            let timeString = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+            let cycle = "";
+
+            body.classList.remove('sky-morning', 'sky-afternoon', 'sky-evening', 'sky-night');
+
+            if (hour >= 6 && hour < 12) {
+                body.classList.add('sky-morning');
+                cycle = "Morning";
+            } else if (hour >= 12 && hour < 17) {
+                body.classList.add('sky-afternoon');
+                cycle = "Afternoon";
+            } else if (hour >= 17 && hour < 20) {
+                body.classList.add('sky-evening');
+                cycle = "Evening";
+            } else {
+                body.classList.add('sky-night');
+                cycle = "Night";
+            }
+
+            document.getElementById('timeDisplay').innerText = "🌿 " + cycle + " | " + timeString;
+        }
+
+        updateEnvironment();
+        setInterval(updateEnvironment, 60000);
+        updateHistoryUI();
+
+        function playVideo(id, title = "Custom Stream Source") {
+            if (!id || !id.trim()) return;
+            
+            id = extractVideoId(id);
+            if (!id || id.length !== 11) {
+                alert("Please drop a valid 11-character YouTube video ID or a standard link.");
+                return;
+            }
+
+            const player = document.getElementById('ytPlayer');
+            
+            /* Resolves Error 153: Directs local files (file:///) through YouTube's official 
+               nocookie embed engine layer to hide origin masking alerts and allow clean playback. */
+            player.src = "https://youtube-nocookie.com" + id + "?autoplay=1&modestbranding=1&rel=0";
+            
+            document.getElementById('currentTitle').innerText = title;
+            addToHistory(id, title);
+        }
+
+        function loadVideoFromInput() {
+            const idInput = document.getElementById('idInput').value.trim();
+            if(idInput) {
+                let cleanId = extractVideoId(idInput);
+                let inferredTitle = (idInput.length === 11) ? "Video ID: " + cleanId : "Loaded Custom Link Stream";
+                playVideo(cleanId, inferredTitle);
+                document.getElementById('idInput').value = '';
+            }
+        }
+
+        // Fixed String Processing Module
+        function extractVideoId(url) {
+            url = url.trim();
+            if (url.includes('v=')) {
+                let parts = url.split('v=');
+                let targetSegment = parts[1]; // Safely grab the text index instead of the array
+                let ampIdx = targetSegment.indexOf('&');
+                return (ampIdx !== -1) ? targetSegment.substring(0, ampIdx) : targetSegment;
+            } else if (url.includes('youtu.be/')) {
+                let parts = url.split('youtu.be/');
+                let targetSegment = parts[1];
+                let qmarkIdx = targetSegment.indexOf('?');
+                return (qmarkIdx !== -1) ? targetSegment.substring(0, qmarkIdx) : targetSegment;
+            } else if (url.includes('embed/')) {
+                let parts = url.split('embed/');
+                let targetSegment = parts[1];
+                let qmarkIdx = targetSegment.indexOf('?');
+                return (qmarkIdx !== -1) ? targetSegment.substring(0, qmarkIdx) : targetSegment;
+            }
+            return url.length === 11 ? url : url;
+        }
+
+        function addToHistory(id, title) {
+            history = history.filter(item => item.id !== id);
+            history.unshift({ id: id, title: title });
+
+            if (history.length > 50) {
+                history.pop();
+            }
+
+            localStorage.setItem('arborPlayerHistory', JSON.stringify(history));
+            updateHistoryUI();
+        }
+
+        function clearHistory() {
+            if(confirm("Are you sure you want to completely wipe your logged history rings? This cannot be undone.")) {
+                history = [];
+                localStorage.removeItem('arborPlayerHistory');
+                updateHistoryUI();
+            }
+        }
+
+        function updateHistoryUI() {
+            const historyContainer = document.getElementById('historyResults');
+            const historyTab = document.getElementById('historyTab');
+            
+            if (historyTab) historyTab.innerText = "Rings (" + history.length + "/50)";
+            if (!historyContainer) return;
+            
+            historyContainer.innerHTML = '';
+
+            if (history.length === 0) {
+                historyContainer.innerHTML = '<p style="color: var(--text-secondary); padding: 10px;">Your historic video rings are completely empty.</p>';
+                return;
+            }
+
+            history.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'video-card-item';
+                itemEl.onclick = () => playVideo(item.id, item.title);
+                
+                const thumbUrl = "https://youtube.com" + item.id + "/mqdefault.jpg";
+                
+                itemEl.innerHTML = '<img src="' + thumbUrl + '" alt="preview">' +
+                    '<div class="video-card-info">' +
+                        '<div class="video-card-title">' + item.title + '</div>' +
+                        '<div class="video-card-channel">🌳 Active Ring Ledger</div>' +
+                    '</div>';
+                historyContainer.appendChild(itemEl);
+            });
+        }
+    </script>
+</body>
+</html>
